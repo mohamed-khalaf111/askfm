@@ -1,0 +1,511 @@
+#include <iostream>
+
+#include <vector>
+
+#include <fstream>
+
+#include <sstream>
+
+#include <set>
+
+#include <tuple>
+
+#include <string>
+
+#include <algorithm>
+
+using namespace std;
+
+static int q_id;
+
+struct users {
+
+    string username;
+
+    int password;
+
+    string name;
+
+    string email;
+
+    int anonymous;
+
+    int user_id;
+
+    multiset<tuple<int, int, string, string>> q_from;
+
+    multiset<tuple<int, int, string, string>> q_to;
+
+    static int get_next_user_id() {
+
+        static int user_id = 0;
+
+        return user_id++;
+
+    }
+
+    users() {
+
+        username = "";
+
+        password = -1;
+
+        name = "";
+
+        email = "";
+
+        anonymous = -1;
+
+    }
+
+    void read() {
+
+        cout << "Enter username: ";
+
+        cin >> username;
+
+        cout << "Enter password: ";
+
+        cin >> password;
+
+        cout << "Enter name: ";
+
+        cin >> name;
+
+        cout << "Enter email: ";
+
+        cin >> email;
+
+        cout << "Allow for anonymous questions? (0 or 1): ";
+
+        cin >> anonymous;
+
+        user_id = get_next_user_id();
+
+    }
+
+    int menu2() {
+
+        int choice = -1;
+
+        while (choice == -1) {
+
+            cout << "\n\n";
+
+            cout << "1: Print questions from me\n";
+
+            cout << "2: Print questions to me\n";
+
+            cout << "3: Answer question\n";
+
+            cout << "4: Delete question\n";
+
+            cout << "5: Ask question\n";
+
+            cout << "6: List system users\n";
+
+            cout << "7: Feed\n";
+
+            cout << "8: Logout\n";
+
+            cin >> choice;
+
+            if (!(choice >= 1 && choice <= 8)) {
+
+                cout << "Invalid choice... Try again...\n";
+
+                choice = -1;
+
+            }
+
+        }
+
+        return choice;
+
+    }
+
+    void run2(vector<users>& user) {
+
+        while (true) {
+
+            int choice = menu2();
+
+            if (choice == 1)
+
+                print_questions_from_me(user);
+
+            else if (choice == 2)
+
+                print_questions_to_me(user);
+
+            else if (choice == 5)
+
+                ask_question(user);
+
+            else if (choice == 6)
+
+                list_system_users(user);
+
+            else
+
+            {
+
+                break;
+
+            }
+
+        }
+
+    }
+
+    void ask_question(vector<users>& user) {
+
+        cout << "Enter user ID or -1 to cancel: ";
+
+        int re_id;
+
+        cin >> re_id;
+
+        if (re_id == -1)
+
+            return;
+
+        cin.ignore();
+
+        string line;
+
+        for (users& it : user) {
+
+            if (it.user_id == re_id && it.anonymous == 0) {
+
+                cout << "Note: Anonymous questions are not allowed for this user.\n";
+
+                break;
+
+            }
+
+        }
+
+        cout << "Enter your question: ";
+
+        getline(cin, line);
+
+        q_from.insert(make_tuple(q_id, re_id, line, " "));
+
+        for (users& it : user) {
+
+            if (it.user_id == re_id) {
+
+                it.q_to.insert(make_tuple(q_id, user_id, line, " "));
+
+                break;
+
+            }
+
+        }
+
+        q_id++;
+
+    }
+
+    void list_system_users(vector<users>& user) {
+
+        cout << "\n";
+
+        for (users& it : user) {
+
+            cout << "ID: " << it.user_id << "    Name: " << it.name << endl;
+
+        }
+
+    }
+
+    void print_questions_from_me(vector<users>& user) {
+
+        for (const auto& it : q_from) {
+
+            cout << "Question ID (" << get<0>(it);
+
+            for (const users& u : user) {
+
+                if (u.user_id == get<1>(it)) {
+
+                    if (u.anonymous == 0) {
+
+                        cout << ") !AQ to user ID (" << get<1>(it) << ")     Question: " << get<2>(it);
+
+                        if (get<3>(it) == " ")
+
+                            cout << "  Not answered yet\n";
+
+                        else
+
+                            cout << "  Answer: " << get<3>(it) << endl;
+
+                    }
+
+                    else {
+
+                        cout << ") to user ID (" << get<1>(it) << ")     Question: " << get<2>(it);
+
+                        if (get<3>(it) == " ")
+
+                            cout << "  Not answered yet\n";
+
+                        else
+
+                            cout << "  Answer: " << get<3>(it) << endl;
+
+                    }
+
+                    break;
+
+                }
+
+            }
+
+        }
+
+    }
+
+    void print_questions_to_me(vector<users>& user) {
+
+        for (const auto& it : q_to) {
+
+            cout << "Question ID (" << get<0>(it);
+
+            if (anonymous == 0) {
+
+                cout << ") from user ID (" << get<1>(it) << ")     Question: " << get<2>(it);
+
+                if (get<3>(it) == " ")
+
+                    continue;
+
+                else
+
+                    cout << "   Answer: " << get<3>(it) << endl;
+
+            } else if (anonymous == 1) {
+
+                cout << ")     Question: " << get<2>(it);
+
+                if (get<3>(it) == " ")
+
+                    continue;
+
+                else
+
+                    cout << "   Answer: " << get<3>(it) << endl;
+
+            }
+
+        }
+
+    }
+
+};
+
+struct ask_fm {
+
+    vector<users> user;
+
+    users cur_user;
+
+    void load_data_of_users(vector<users>&user) {
+
+    ifstream fin("users.txt");
+
+    if (fin.is_open()) {
+
+        string line;
+
+        while (getline(fin, line)) {
+
+            istringstream iss(line);
+
+            string user_name;
+
+            int pass;
+
+            string name;
+
+            string email;
+
+            int anonymous;
+
+            int user_id;
+
+            if (getline(iss, user_name, ',') &&
+
+                (iss >> pass >> name >> email >> anonymous >> user_id)) {
+
+                users newuser;
+
+                newuser.username = user_name;
+
+                newuser.password = pass;
+
+                newuser.name = name;
+
+                newuser.email = email;
+
+                newuser.anonymous = anonymous;
+
+                newuser.user_id = user_id;
+
+                user.push_back(newuser);
+
+            }
+
+        }
+
+        fin.close();
+
+        }
+
+        else
+
+            {
+
+               cout << "Cannot open the file.\n";
+
+              }
+
+    }
+
+    void run1() {
+
+        while (true) {
+
+            user.clear();
+
+            load_data_of_users(user);
+
+            int choice = menu1();
+
+            if (choice == 1) {
+
+                cur_user = login(user);
+
+                if (cur_user.username.empty())
+
+                    cout << "Username or password is not correct.\n";
+
+                else
+
+                    cur_user.run2(user);
+
+            }
+
+            if (choice == 2)
+
+                signup(user);
+
+        }
+
+    }
+
+    int menu1() {
+
+        int choice = -1;
+
+        while (choice == -1) {
+
+            cout << "Menu:\n\n";
+
+            cout << "1: Login\n";
+
+            cout << "2: Signup\n\n";
+
+            cout << "Enter your choice: ";
+
+            cin >> choice;
+
+            if (!(choice >= 1 && choice <= 2)) {
+
+                cout << "Invalid choice... Try again..\n";
+
+                choice = -1;
+
+            }
+
+        }
+
+        return choice;
+
+    }
+
+    void save_info_of_user(const users &newueser)
+
+    {
+
+        ofstream fout("users.txt",ios::app);
+
+        if(fout.is_open()){
+
+        fout<<newueser.username<<","<<newueser.password<<","<<newueser.name<<","<<newueser.email<<","<<newueser.anonymous<<","<<newueser.user_id<<endl;
+
+        }
+
+        else
+
+            cout<<"we canot open the file of users \n";
+
+        fout.close();
+
+    }
+
+    void signup(vector<users>& user) {
+
+        users newuser;
+
+        newuser.read();
+
+        user.push_back(newuser);
+
+        newuser.run2(user);
+
+        save_info_of_user(newuser);
+
+    }
+
+    users login(vector<users>& user) {
+
+        string username;
+
+        int password;
+
+        cout << "Enter username and password: ";
+
+        cin >> username >> password;
+
+        for (const users &it : user) {
+
+           if(it.username.compare(username) == 0)
+
+           {
+
+               if(it.password==password)
+
+                return it;
+
+           }
+
+        }
+
+        return {};
+
+    }
+
+};
+
+int main() {
+
+    ask_fm ask;
+
+    ask.run1();
+
+    return 0;
+
+}
